@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import matplotlib.subplots as plt_sub
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.cluster import DBSCAN
@@ -86,7 +87,7 @@ with st.sidebar:
     
     st.divider()
     
-    # Parâmetros do DBSCAN (Com tooltips para UX)
+    # Parâmetros do DBSCAN
     MAX_EPS = 3.0
     MAX_MIN_SAMPLES = 20
     
@@ -117,7 +118,7 @@ with st.sidebar:
 is_easter_egg = (eps_val == MAX_EPS and min_samp == MAX_MIN_SAMPLES)
 
 if is_easter_egg:
-    # Ativa o Easter Egg gerando apenas a logo do Github como anomalias
+    # Ativa o Easter Egg
     df_result = gerar_dados_github_logo()
     total_maq = len(df_result)
     anomalias_count = total_maq
@@ -125,15 +126,12 @@ else:
     # Lógica Normal Preditiva
     df_result = df_base.copy()
     
-    # Normalização é crucial para o DBSCAN funcionar bem em escalas diferentes
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df_result[['Frequencia_Vibracao', 'Pico_Temperatura']])
     
-    # Aplicação do algoritmo
     dbscan = DBSCAN(eps=eps_val, min_samples=min_samp)
     df_result['Cluster'] = dbscan.fit_predict(X_scaled)
     
-    # Mapear status para UX da Tabela
     df_result['Status'] = df_result['Cluster'].apply(lambda x: 'Anomalia (Manutenção)' if x == -1 else 'Operação Normal')
     
     total_maq = len(df_result)
@@ -145,7 +143,6 @@ else:
 st.title("🏭 Dashboard de Manutenção Preditiva")
 st.markdown("Monitoramento de vibração e temperatura do maquinário em tempo real utilizando algoritmo não-supervisionado (**DBSCAN**).")
 
-# Métricas de Resumo (KPIs rápidos no topo)
 col1, col2, col3 = st.columns(3)
 col1.metric("Total de Máquinas Monitoradas", total_maq)
 col2.metric("Anomalias Detectadas", anomalias_count, delta_color="inverse", delta=anomalias_count)
@@ -158,7 +155,6 @@ st.divider()
 # ==========================================
 st.subheader("📡 Distribuição de Sensores e Detecção")
 
-# Configurando as cores (Preto para -1, paleta categórica para os demais)
 clusters_unicos = sorted(df_result['Cluster'].unique())
 paleta_cores = {}
 cor_normal = sns.color_palette("Set1", n_colors=10)
@@ -166,12 +162,11 @@ idx_cor = 0
 
 for c in clusters_unicos:
     if c == -1:
-        paleta_cores[c] = 'black'  # Outliers sempre pretos
+        paleta_cores[c] = 'black'
     else:
         paleta_cores[c] = cor_normal[idx_cor % 10]
         idx_cor += 1
 
-# Plotagem
 fig, ax = plt.subplots(figsize=(10, 5))
 sns.scatterplot(
     data=df_result, 
@@ -179,13 +174,12 @@ sns.scatterplot(
     y='Pico_Temperatura', 
     hue='Cluster', 
     palette=paleta_cores,
-    s=80 if not is_easter_egg else 120, # Bolinhas maiores no easter egg
-    marker='o' if not is_easter_egg else 's', # Quadrados para simular pixels no logo
+    s=80 if not is_easter_egg else 120,
+    marker='o' if not is_easter_egg else 's',
     alpha=0.8,
     ax=ax
 )
 
-# Ajustes visuais no gráfico
 ax.set_title("Vibração vs Temperatura" if not is_easter_egg else "EASTER EGG UNLOCKED: Octocat Anômalo!", fontweight='bold')
 ax.set_xlabel("Frequência de Vibração (Hz)")
 ax.set_ylabel("Pico de Temperatura (°C)")
@@ -193,7 +187,7 @@ fig.patch.set_facecolor('none')
 ax.set_facecolor('none')
 
 if is_easter_egg:
-    ax.legend_.remove() # Esconde a legenda no easter egg
+    ax.legend_.remove()
 else:
     plt.legend(title='Grupo (Cluster) | -1 = Outlier', bbox_to_anchor=(1.05, 1), loc='upper left')
 
@@ -211,11 +205,12 @@ df_anomalias = df_result[df_result['Cluster'] == -1].copy()
 
 if not df_anomalias.empty:
     st.dataframe(
+        # CORREÇÃO: Utilização de .map() em vez de .applymap()
         df_anomalias[['ID_Maquina', 'Frequencia_Vibracao', 'Pico_Temperatura', 'Status']].style.format({
             "Frequencia_Vibracao": "{:.2f} Hz",
             "Pico_Temperatura": "{:.2f} °C"
-        }).applymap(lambda x: "background-color: #ffcccc; color: black", subset=['Status']),
+        }).map(lambda x: "background-color: #ffcccc; color: black", subset=['Status']),
         use_container_width=True
     )
 else:
-    st.success("Tudo certo! Nenhuma anomalia detectada com os parâmetros atuais de sensibilidade.")
+    st.success("Tudo certo! Nenhuma anomalia detetada com os parâmetros atuais de sensibilidade.")
